@@ -8,20 +8,49 @@ Created on 30/06/2011
 import csv
 import time
 import re
+import os
+from zipfile import ZipFile
 from xml.sax.saxutils import escape
 
 # NOTE: The PIM Backup file must first be manually converted to "UTF-8 without BOM" encoding
 
+# Create a CSV reader for the source file
+def get_reader(source):
+    ext = source[-4:]
+    # If the message file is given directly, open it
+    if ext == ".csm" or ext == ".csv":
+        csv_file = open(source, "rb")
+    # If the PIB file is given, extract the message file and open it
+    elif ext == ".pib":
+        zip = ZipFile(source, 'r')
+        for filename in zip.namelist():
+            if filename[-4:] == ".csm":
+                csv_file = zip.open(filename, 'r')
+                break
+    else:
+        raise Exception("Unknown input file type, please use .pib or .csm.")
+    
+    if not csv_file:
+        raise Exception("Couldn't load messages file, please check your input.")
+    
+    # Read the file contents
+    sms_text = csv_file.read().decode("utf-16").split(os.linesep)
+    sms_reader = csv.reader(sms_text, delimiter=';', quotechar='"', escapechar="\\")
+    # Return the reader and the eventual source filename
+    return sms_reader
+    
 # Convert the PIM file to XML
 def convert(source, out):
     out_str = ""
     print "Reading input from " + source + "..."
-    sms_reader = csv.reader(open(source, "rb"), delimiter=';', quotechar='"', escapechar="\\")
-
+    sms_reader = get_reader(source)
+    
     print "Processing SMS messages..."
     sms_count = 0
     # For each message
     for row in sms_reader:
+        if not row:
+            continue
         msg_class = row[10]
         # If the entry is an SMS
         if msg_class == "IPM.SMStext":
@@ -34,9 +63,9 @@ def convert(source, out):
     # If an output file path was not specified, generate from source path
     if not out:
         out = source[:-4] + '.xml'
-        print "Writing output to " + out
 
     # Write the output
+    print "Writing output to " + out
     out_file = open(out, "wb")
     out_file.write("<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>\n")
     out_file.write('<smses count="%d">\n%s</smses>' % (sms_count, out_str))
