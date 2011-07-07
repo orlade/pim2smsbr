@@ -75,7 +75,9 @@ def convert(source, out):
 def process(row):
     subject = row[4]
     body = escape(row[5]).replace('"', '&quot;')
-    date = int(time.mktime(time.strptime(row[16], "%Y,%m,%d,%H,%M,%S")))
+    date = 0;
+    if row[16] != "":
+        date = int(time.mktime(time.strptime(row[16], "%Y,%m,%d,%H,%M,%S")))
 
     # If the SMS was received (sender not empty)
     if row[2]:
