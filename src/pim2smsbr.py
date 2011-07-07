@@ -29,22 +29,26 @@ def get_reader(source):
                 break
     else:
         raise Exception("Unknown input file type, please use .pib or .csm.")
-    
+
     if not csv_file:
         raise Exception("Couldn't load messages file, please check your input.")
-    
+
     # Read the file contents
     sms_text = csv_file.read().decode("utf-16").split(os.linesep)
     sms_reader = csv.reader(sms_text, delimiter=';', quotechar='"', escapechar="\\")
     # Return the reader and the eventual source filename
     return sms_reader
-    
+
 # Convert the PIM file to XML
 def convert(source, out):
     out_str = ""
     print "Reading input from " + source + "..."
-    sms_reader = get_reader(source)
-    
+    try:
+        sms_reader = get_reader(source)
+    except IOError:
+        print "Input file not found at " + source + ", aborting"
+        return
+
     print "Processing SMS messages..."
     sms_count = 0
     # For each message
@@ -87,7 +91,7 @@ def process(row):
         type = 1
         svc_ctr = "+491722270333"
         status = -1
-        
+
     # Else the message was sent
     else:
         address = row[18].split(';')[2].strip('\\')
