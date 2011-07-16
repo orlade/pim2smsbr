@@ -1,4 +1,5 @@
 '''
+A simple script to convert a PIM Backup file into an XML file usable by SMS Backup & Restore.
 Created on 30/06/2011
 
 @author: Oliver Lade
@@ -6,19 +7,18 @@ Created on 30/06/2011
 @contact: piemaster21@gmail.com
 '''
 import csv
-import time
-import re
 import os
+import re
+import sys
+import time
 from zipfile import ZipFile
 from xml.sax.saxutils import escape
-
-# NOTE: The PIM Backup file must first be manually converted to "UTF-8 without BOM" encoding
 
 SMS_LABEL = "IPM.SMStext"
 
 # Create a CSV reader for the source file
 def get_reader(source):
-    ext = source[-4:]
+    ext = os.path.splitext(source)[1].lower()
     # If the message file is given directly, open it
     if ext.lower() in ('.csm', '.csv'):
         csv_file = open(source, 'r')
@@ -26,14 +26,16 @@ def get_reader(source):
     elif ext.lower() == '.pib':
         zip = ZipFile(source, 'r')
         for filename in zip.namelist():
-            if filename[-4:].lower() == '.csm':
-                csv_file = zip.open(filename, 'r')
+            if os.path.splitext(filename)[1].lower() == '.csm':
+                csv_file = zip.open(filename, 'rb')
                 break
     else:
-        raise Exception("Unknown input file type, please use .pib or .csm.")
+        print "ERROR: Unknown input file type '%s', please use the original .pib or .csm backup file." % ext
+        sys.exit()
 
     if not csv_file:
-        raise Exception("Couldn't load messages file, please check your input.")
+        print "ERROR: Couldn't load messages file, please check your input."
+        sys.exit()
 
     # Read the file contents
     sms_text = csv_file.read().decode('utf-16').split(os.linesep)
@@ -43,39 +45,74 @@ def get_reader(source):
 
 # Convert the PIM file to XML
 def convert(source, out):
+    start_time = time.time()
     out_str = ''
-    print "Reading input from %s..." % source
+    print " - Reading input from '%s'..." % source
     try:
         sms_reader = get_reader(source)
+        
     except IOError:
-        print "Input file not found at %s, aborting" % source
-        return
-
-    print "Processing SMS messages..."
+        print "ERROR: Input file not found at '%s', aborting" % source
+        sys.exit()
+    
+    print " - Processing SMS messages"
+    print "----------------------------------------"
+    print " - Working..."
+    line_num = 0
     sms_count = 0
-    # For each message
-    for row in sms_reader:
-        if not row:
-            continue
-        msg_class = row[10]
-        # If the entry is an SMS
-        if msg_class.lower() == SMS_LABEL.lower():
-            # Process it
-            msg_xml = process(row)
-            out_str += '\t' + msg_xml + '\n'
-            sms_count += 1
-    print "Processing %d messages complete!" % sms_count
+    warn_count = 0
+    # For each message, using the iterator manually
+    try:
+        while 1:
+            line_num += 1
+            # Try to read the row first for encoding errors
+            try:
+                row = sms_reader.next()
+            except UnicodeEncodeError:
+                print "WARNING (line %d): Failed to decode line, skipping..." % line_num
+                warn_count += 1
+                continue
+            
+            # Process the contents of the row
+            if not row:
+                continue
+            
+            try:
+                msg_class = row[10]
+            except IndexError:
+                print "WARNING (line %d): Line incorrectly formed, skipping..." % line_num
+                warn_count += 1
+                continue
+            
+            # If the entry is an SMS
+            if msg_class.lower() == SMS_LABEL.lower():
+                # Process it
+                msg_xml = process(row)
+                out_str += '\t%s\n' % msg_xml
+                sms_count += 1
+                
+    except StopIteration:
+        print "----------------------------------------"
+        print " - Processing of %d messages complete!" % sms_count
+        if warn_count > 0:
+            print "\nWARNING: %d warnings generated." % warn_count
+            print "You may like to review the contents of the given lines"
+            print "in the source file and correct them manually."
+            print "(If source is .pib, change to .zip and extract .csm file)\n"
 
     # If an output file path was not specified, generate from source path
     if not out:
         out = source[:-4] + '.xml'
 
     # Write the output
-    print "Writing output to " + out
+    print " - Writing output to '%s'..." % out
     out_file = open(out, 'w')
     out_file.write('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n')
     out_file.write('<smses count="%d">\n%s</smses>' % (sms_count, out_str))
-    print "Output written!"
+    
+    time_taken = time.time() - start_time
+    print " - Output written"
+    print " - Conversion complete! (%.2f secs)" % time_taken
 
 # Process one row of the PIM file to an XML node
 def process(row):
@@ -117,5 +154,11 @@ if __name__ == '__main__':
                        help="optionally specify a file to write the output to")
     args = parser.parse_args()
 
+    # Print some contact details
+    print "PIM Backup to SMS Backup & Restore Converter"
+    print " Written by Oliver Lade (piemaster21@gmail.com)"
+    print " More information at http://piemaster.net/tools/winmo-android-sms-converter/"
+    print " Questions and comments very welcome!\n"
+    
     # Convert the given input file
     convert(args.source[0], args.out)
