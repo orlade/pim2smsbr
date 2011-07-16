@@ -5,7 +5,33 @@ Created on 30/06/2011
 @author: Oliver Lade
 @contact: http://piemaster.net/
 @contact: piemaster21@gmail.com
+
+@license: Simplified BSD License
+
+Copyright (c) 2011, Oliver Lade
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+ - Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+ - Redistributions in binary form must reproduce the above copyright notice, 
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''
+
 import csv
 import os
 import re
@@ -50,14 +76,15 @@ def convert(source, out):
     print " - Reading input from '%s'..." % source
     try:
         sms_reader = get_reader(source)
-        
+
     except IOError:
         print "ERROR: Input file not found at '%s', aborting" % source
         sys.exit()
-    
+
     print " - Processing SMS messages"
     print "----------------------------------------"
     print " - Working..."
+
     line_num = 0
     sms_count = 0
     warn_count = 0
@@ -72,25 +99,25 @@ def convert(source, out):
                 print "WARNING (line %d): Failed to decode line, skipping..." % line_num
                 warn_count += 1
                 continue
-            
+
             # Process the contents of the row
             if not row:
                 continue
-            
+
             try:
                 msg_class = row[10]
             except IndexError:
                 print "WARNING (line %d): Line incorrectly formed, skipping..." % line_num
                 warn_count += 1
                 continue
-            
+
             # If the entry is an SMS
             if msg_class.lower() == SMS_LABEL.lower():
                 # Process it
                 msg_xml = process(row)
                 out_str += '\t%s\n' % msg_xml
                 sms_count += 1
-                
+
     except StopIteration:
         print "----------------------------------------"
         print " - Processing of %d messages complete!" % sms_count
@@ -109,7 +136,7 @@ def convert(source, out):
     out_file = open(out, 'w')
     out_file.write('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n')
     out_file.write('<smses count="%d">\n%s</smses>' % (sms_count, out_str))
-    
+
     time_taken = time.time() - start_time
     print " - Output written"
     print " - Conversion complete! (%.2f secs)" % time_taken
@@ -159,6 +186,6 @@ if __name__ == '__main__':
     print " Written by Oliver Lade (piemaster21@gmail.com)"
     print " More information at http://piemaster.net/tools/winmo-android-sms-converter/"
     print " Questions and comments very welcome!\n"
-    
+
     # Convert the given input file
     convert(args.source[0], args.out)
