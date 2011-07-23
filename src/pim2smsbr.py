@@ -44,6 +44,7 @@ SMS_LABEL = "IPM.SMStext"
 
 # Create a CSV reader for the source file
 def get_reader(source):
+    csv_file = None
     ext = os.path.splitext(source)[1].lower()
     # If the message file is given directly, open it
     if ext.lower() in ('.csm', '.csv'):
@@ -60,7 +61,7 @@ def get_reader(source):
         sys.exit()
 
     if not csv_file:
-        print "ERROR: Couldn't load messages file, please check your input."
+        print "ERROR: Couldn't load messages file, please check your input path and contents."
         sys.exit()
 
     # Read the file contents
