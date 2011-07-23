@@ -53,7 +53,7 @@ def get_reader(source):
         zip = ZipFile(source, 'r')
         for filename in zip.namelist():
             if os.path.splitext(filename)[1].lower() == '.csm':
-                csv_file = zip.open(filename, 'rb')
+                csv_file = zip.open(filename, 'r')
                 break
     else:
         print "ERROR: Unknown input file type '%s', please use the original .pib or .csm backup file." % ext
