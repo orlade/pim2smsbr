@@ -146,14 +146,16 @@ def convert(source, out):
 def process(row):
     subject = row[4]
     body = escape(row[5]).replace('"', '&quot;')
+    # If sender address is empty, then message was sent
+    was_sent = (row[2] == '')
+    
     date = 0
-
     if row[16] != '':
         # Date should be timestamp in ms
         date = int(time.mktime(time.strptime(row[16], '%Y,%m,%d,%H,%M,%S'))) * 1000
 
     # If the SMS was received (sender not empty)
-    if row[2]:
+    if was_sent:
         # Match a string of digits with an optional plus
         match = re.search('[^+\d]*(\+*[\d]+)\D*', row[2])
         address = match.group(1) if match else None
@@ -162,7 +164,10 @@ def process(row):
 
     # Else the message was sent
     else:
-        address = row[18].split(';')[2].strip('\\')
+        try:
+            address = row[18].split(';')[2].strip('\\')
+        except:
+            address = ''
         type = 2
         status = 0
 
