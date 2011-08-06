@@ -73,7 +73,6 @@ def get_reader(source):
 # Convert the PIM file to XML
 def convert(source, out):
     start_time = time.time()
-    out_str = ''
     print " - Reading input from '%s'..." % source
     try:
         sms_reader = get_reader(source)
@@ -86,6 +85,7 @@ def convert(source, out):
     print "----------------------------------------"
     print " - Working..."
 
+    items = []
     line_num = 0
     sms_count = 0
     warn_count = 0
@@ -115,8 +115,7 @@ def convert(source, out):
             # If the entry is an SMS
             if msg_class.lower() == SMS_LABEL.lower():
                 # Process it
-                msg_xml = process(row)
-                out_str += '\t%s\n' % msg_xml
+                items.append(process(row, line_num))
                 sms_count += 1
 
     except StopIteration:
@@ -132,8 +131,16 @@ def convert(source, out):
     if not out:
         out = source[:-4] + '.xml'
 
-    # Write the output
+    # Generate and write the XML output
     print " - Writing output to '%s'..." % out
+
+    # Sort the list of output items by date
+    from operator import itemgetter
+    item_list = sorted(items, key=itemgetter('date'))
+    out_str = ''
+    for item in item_list:
+        out_str += '\t%s\n' % item_to_xml(item)
+    
     out_file = open(out, 'w')
     out_file.write('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n')
     out_file.write('<smses count="%d">\n%s</smses>' % (sms_count, out_str))
@@ -143,40 +150,40 @@ def convert(source, out):
     print " - Conversion complete! (%.2f secs)" % time_taken
 
 # Process one row of the PIM file to an XML node
-def process(row):
-    subject = row[4]
-    body = escape(row[5]).replace('"', '&quot;')
-    # If sender address is empty, then message was sent
+def process(row, line_num=None):
+    item = {}
+    item['subject'] = row[4]
+    item['body'] = escape(row[5]).replace('"', '&quot;').rstrip("- GSM")
+    # If sender address is empty, then message was sent, not received
     was_sent = (row[2] == '')
-    
-    date = 0
+
+    item['date'] = 0
     if row[16] != '':
         # Date should be timestamp in ms
-        print row[16]
-        date = int(time.mktime(time.strptime(row[16], '%Y,%m,%d,%H,%M,%S'))) * 1000
+        item['date'] = int(time.mktime(time.strptime(row[16], '%Y,%m,%d,%H,%M,%S'))) * 1000
 
-    # If the SMS was received (sender not empty)
+    # If the message was sent
     if was_sent:
+        item['type'] = 2
+        try:
+            item['address'] = row[18].split(';')[2].strip('\\')
+        except:
+            print "WARNING (line %d): Sent message destination not found, leaving empty..." % line_num
+            item['address'] = ''
+
+    # If the SMS was received
+    else:
+        item['type'] = 1
         # Match a string of digits with an optional plus
         match = re.search('[^+\d]*(\+*[\d]+)\D*', row[2])
-        address = match.group(1) if match else None
-        type = 1
-        status = -1
+        item['address'] = match.group(1) if match else None
 
-    # Else the message was sent
-    else:
-        try:
-            address = row[18].split(';')[2].strip('\\')
-        except:
-            address = ''
-        type = 2
-        status = 0
+    return item
 
-    # Generate the XML node
-    msg_xml = '<sms protocol="%s" address="%s" date="%s" type="%s" subject="%s" body="%s" toa="%s" sc_toa="%s" service_center="%s" read="%s" status="%s" locked="%s" />' % \
-    (0, address, date, type, subject, body, 'null', 'null', 'null', 1, status, 0)
-
-    return msg_xml
+# Generate the XML node from a dictionary of items generated in process()
+def item_to_xml(item):
+    return '<sms protocol="%s" address="%s" date="%s" type="%s" subject="%s" body="%s" toa="%s" sc_toa="%s" service_center="%s" read="%s" status="%s" locked="%s" />' % \
+    (0, item['address'], item['date'], item['type'], item['subject'], item['body'], 'null', 'null', 'null', 1, 0, 0)
 
 if __name__ == '__main__':
     import argparse
