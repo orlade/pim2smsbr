@@ -153,7 +153,7 @@ def process(row):
     if row[16] != '':
         # Date should be timestamp in ms
         print row[16]
-        date = int(time.mktime(time.strptime(row[16], '%Y,%m,%d,%H,%M,%S')))
+        date = int(time.mktime(time.strptime(row[16], '%Y,%m,%d,%H,%M,%S'))) * 1000
 
     # If the SMS was received (sender not empty)
     if was_sent:
