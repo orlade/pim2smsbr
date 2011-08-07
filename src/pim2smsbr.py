@@ -137,19 +137,21 @@ def convert(source, out):
     # Sort the list of output items by date
     from operator import itemgetter
     item_list = sorted(items, key=itemgetter('date'))
+    # Build the output string
     out_str = ''
     for item in item_list:
         out_str += '\t%s\n' % item_to_xml(item)
-    
+    # Write the output string
     out_file = open(out, 'w')
     out_file.write('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n')
     out_file.write('<smses count="%d">\n%s</smses>' % (sms_count, out_str))
 
+    # Finish up
     time_taken = time.time() - start_time
     print " - Output written"
     print " - Conversion complete! (%.2f secs)" % time_taken
 
-# Process one row of the PIM file to an XML node
+# Process one row of the PIM file to a dictionary of XML field strings
 def process(row, line_num=None):
     item = {}
     item['subject'] = row[4]
