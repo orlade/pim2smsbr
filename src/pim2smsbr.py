@@ -63,10 +63,10 @@ def get_reader(source):
     if not csv_file:
         print "ERROR: Couldn't load messages file, please check your input path and contents."
         sys.exit()
-
+        
     # Read the file contents
-    sms_text = csv_file.read().decode('utf-16').split(os.linesep)
-    sms_reader = csv.reader(sms_text, delimiter=';', quotechar='"', escapechar='\\')
+    lines = csv_file.read().decode('utf-16').encode('utf-8').splitlines()
+    sms_reader = csv.reader(lines, delimiter=';', quotechar='"', escapechar='\\')
     # Return the reader and the eventual source filename
     return sms_reader
 
