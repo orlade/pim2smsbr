@@ -1,5 +1,6 @@
 '''
-A simple script to convert a PIM Backup file into an XML file usable by SMS Backup & Restore.
+A simple script to convert a PIM Backup file into an XML file usable by 
+SMS Backup & Restore.
 Created on 30/06/2011
 
 @author: Oliver Lade
@@ -41,28 +42,35 @@ from zipfile import ZipFile
 from xml.sax.saxutils import escape
 
 SMS_LABEL = "IPM.SMStext"
+DETAIL_URL = "http://piemaster.net/tools/winmo-android-sms-converter/"
 
 # Create a CSV reader for the source file
 def get_reader(source):
     csv_file = None
     ext = os.path.splitext(source)[1].lower()
+    
     # If the message file is given directly, open it
-    if ext.lower() in ('.csm', '.csv'):
+    if ext in ('.csm', '.csv'):
         csv_file = open(source, 'r')
+    # If given directly but from binary backup, error
+    elif ext == '.pbm':
+        throw_binary_error()
     # If the PIB file is given, extract the message file and open it
-    elif ext.lower() == '.pib':
+    elif ext == '.pib':
         zip = ZipFile(source, 'r')
         for filename in zip.namelist():
-            if os.path.splitext(filename)[1].lower() == '.csm':
+            ext = os.path.splitext(filename)[1].lower()
+            if ext == '.csm':
                 csv_file = zip.open(filename, 'r')
                 break
+            # Evidence of binary backup
+            elif ext == '.pbm':
+                throw_binary_error()
     else:
-        print "ERROR: Unknown input file type '%s', please use the original .pib or .csm backup file." % ext
-        sys.exit()
+        display_error("Unknown input file type '%s', please use the original .pib or .csm backup file." % ext)
 
     if not csv_file:
-        print "ERROR: Couldn't load messages file, please check your input path and contents."
-        sys.exit()
+        display_error("Couldn't find messages file. Please check your input path and contents.")
         
     # Read the file contents
     lines = csv_file.read().decode('utf-16').encode('utf-8').splitlines()
@@ -78,11 +86,10 @@ def convert(source, out):
         sms_reader = get_reader(source)
 
     except IOError:
-        print "ERROR: Input file not found at '%s', aborting" % source
-        sys.exit()
+        display_error("Input file not found at '%s', aborting" % source)
 
     print " - Processing SMS messages"
-    print "----------------------------------------"
+    print "-"*40
     print " - Working..."
 
     items = []
@@ -97,7 +104,7 @@ def convert(source, out):
             try:
                 row = sms_reader.next()
             except UnicodeEncodeError:
-                print "WARNING (line %d): Failed to decode line, skipping..." % line_num
+                display_warning("Failed to decode line, skipping...", line_num)
                 warn_count += 1
                 continue
 
@@ -108,7 +115,7 @@ def convert(source, out):
             try:
                 msg_class = row[10]
             except IndexError:
-                print "WARNING (line %d): Line incorrectly formed, skipping..." % line_num
+                display_warning("Line incorrectly formed, skipping...", line_num)
                 warn_count += 1
                 continue
 
@@ -119,13 +126,16 @@ def convert(source, out):
                 sms_count += 1
 
     except StopIteration:
-        print "----------------------------------------"
+        print "-"*40
         print " - Processing of %d messages complete!" % sms_count
         if warn_count > 0:
-            print "\nWARNING: %d warnings generated." % warn_count
-            print "You may like to review the contents of the given lines"
-            print "in the source file and correct them manually."
-            print "(If source is .pib, change to .zip and extract .csm file)\n"
+            message = '''%d warnings generated.
+ You may wish to correct these warnings manually in the source file (remember 
+ to create a backup copy first), or for further assistance, see below.
+ 
+ More information   - %s
+ Help in the forums - http://piemaster.net/forums/''' % (warn_count, DETAIL_URL)
+            display_warning(message)
 
     # If an output file path was not specified, generate from source path
     if not out:
@@ -170,7 +180,7 @@ def process(row, line_num=None):
         try:
             item['address'] = row[18].split(';')[2].strip('\\')
         except:
-            print "WARNING (line %d): Sent message destination not found, leaving empty..." % line_num
+            display_warning("Sent message destination not found, leaving empty...", line_num)
             item['address'] = ''
 
     # If the SMS was received
@@ -186,7 +196,35 @@ def process(row, line_num=None):
 def item_to_xml(item):
     return '<sms protocol="%s" address="%s" date="%s" type="%s" subject="%s" body="%s" toa="%s" sc_toa="%s" service_center="%s" read="%s" status="%s" locked="%s" />' % \
     (0, item['address'], item['date'], item['type'], item['subject'], item['body'], 'null', 'null', 'null', 1, 0, 0)
-
+    
+# Throw a warning to the user and continue
+def display_warning(message, line=None):
+    if line:
+        print "WARNING (line %s): %s" % (line, message)
+    else:
+        print "WARNING: %s" % message
+    
+# Throw an error to the user and exit peacefully
+def display_error(message):
+    print '''
+ !!!!!!!!!
+ ! ERROR !
+ !!!!!!!!!
+ 
+ -> %s
+ 
+ For help resolving this error:
+ More information   - %s
+ Help in the forums - http://piemaster.net/forums/''' % (message, DETAIL_URL)
+    sys.exit()
+    
+# Throw an error informing the user to export uncompressed
+def throw_binary_error():
+    message = """Couldn't load binary messages file.
+ Please ensure you DISABLE the BINARY BACKUP option in PIM Backup."""
+    display_error(message)
+    
+    
 if __name__ == '__main__':
     import argparse
 
@@ -198,10 +236,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Print some contact details
+    print 
+    print "-"*40
     print "PIM Backup to SMS Backup & Restore Converter"
     print " Written by Oliver Lade (piemaster21@gmail.com)"
-    print " More information at http://piemaster.net/tools/winmo-android-sms-converter/"
-    print " Questions and comments very welcome!\n"
-
+    print " More information at %s" % DETAIL_URL
+    print " Questions and comments very welcome!"
+    print "-"*40
+    print 
+    
     # Convert the given input file
     convert(args.source[0], args.out)
