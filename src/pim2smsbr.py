@@ -73,7 +73,7 @@ def get_reader(source):
         display_error("Couldn't find messages file. Please check your input path and contents.")
         
     # Read the file contents
-    lines = csv_file.read().decode('utf-16').encode('utf-8').splitlines()
+    lines = csv_file.read().decode('utf-16', 'replace').encode('utf-8').splitlines()
     sms_reader = csv.reader(lines, delimiter=';', quotechar='"', escapechar='\\')
     # Return the reader and the eventual source filename
     return sms_reader
@@ -104,7 +104,11 @@ def convert(source, out):
             try:
                 row = sms_reader.next()
             except UnicodeEncodeError:
-                display_warning("Failed to decode line, skipping...", line_num)
+                display_warning("Failed to decode line (UnicodeEncodeError), skipping...", line_num)
+                warn_count += 1
+                continue
+            except csv.Error:
+                display_warning("Failed to decode line (CSV error), skipping...", line_num)
                 warn_count += 1
                 continue
 
@@ -129,6 +133,7 @@ def convert(source, out):
         print "-"*40
         print " - Processing of %d messages complete!" % sms_count
         if warn_count > 0:
+            print ""
             message = '''%d warnings generated.
  You may wish to correct these warnings manually in the source file (remember 
  to create a backup copy first), or for further assistance, see below.
