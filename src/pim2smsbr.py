@@ -177,7 +177,11 @@ def process(row, line_num=None):
     item['date'] = 0
     if row[16] != '':
         # Date should be timestamp in ms
-        item['date'] = int(time.mktime(time.strptime(row[16], '%Y,%m,%d,%H,%M,%S'))) * 1000
+        try:
+            item['date'] = int(time.mktime(time.strptime(row[16], '%Y,%m,%d,%H,%M,%S'))) * 1000
+        except:
+            display_warning("Failed to parse date '" + row[16] + "', setting to start of epoch...")
+            item['date'] = 0
 
     # If the message was sent
     if was_sent:
